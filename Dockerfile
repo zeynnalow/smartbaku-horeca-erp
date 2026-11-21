@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
 COPY templates/ templates/
 COPY static/ static/
+COPY tests/ tests/
 
 EXPOSE 8000
 

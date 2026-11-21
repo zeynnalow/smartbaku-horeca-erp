@@ -1,7 +1,8 @@
 from pathlib import Path
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from ..services.waybill import WaybillGenerator
 
 # Calculate templates path relative to this file or root
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -44,4 +45,19 @@ async def page_waybills(request: Request):
     return templates.TemplateResponse("waybills.html", {
         "request": request,
         "active_tab": "waybills"
+    })
+
+@router.get("/waybills/{waybill_id}/print", response_class=HTMLResponse)
+async def page_waybill_print(waybill_id: int, request: Request):
+    generator = WaybillGenerator(request.app.state.db)
+    wb = generator.get_printable(waybill_id)
+    if not wb:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": f"Waybill with ID {waybill_id} not found", "code": "NOT_FOUND"}
+        )
+    return templates.TemplateResponse("waybill_print.html", {
+        "request": request,
+        "waybill": wb,
+        "items": wb.get("items", [])
     })

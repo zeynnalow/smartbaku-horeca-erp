@@ -73,13 +73,13 @@ function renderWaybillsTable(waybills) {
 }
 
 function printWaybill(id) {
-  window.open(`/api/waybills/${id}/print`, "_blank");
+  window.open(`/waybills/${id}/print`, "_blank");
 }
 
 function openNewWaybillModal() {
   document.getElementById("waybill-form").reset();
   document.getElementById("wb-currency").value = "AZN";
-  document.getElementById("wb-exchange-rate").value = "1.000000";
+  onCurrencyChange();
 
   lineItems = [];
   addWaybillLineItem();
@@ -96,8 +96,12 @@ function onCurrencyChange() {
   if (currency === "AZN") {
     rateInput.value = "1.000000";
     rateInput.readOnly = true;
+    rateInput.style.backgroundColor = "#F1F5F9";
+    rateInput.style.cursor = "not-allowed";
   } else {
     rateInput.readOnly = false;
+    rateInput.style.backgroundColor = "#FFFFFF";
+    rateInput.style.cursor = "text";
     const rate = currentRates[currency] || 1.0;
     rateInput.value = Number(rate).toFixed(6);
   }
