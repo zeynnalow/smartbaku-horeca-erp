@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartbaku_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartbaku
+      POSTGRES_USER: smartbaku
+      POSTGRES_PASSWORD: smartbaku2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartbaku -d smartbaku"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: smartbaku_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: smartbaku
+      DB_USER: smartbaku
+      DB_PASSWORD: smartbaku2026
+      CBAR_URL: "https://www.cbar.az/currencies/{date}.xml"
+      CBAR_TIMEOUT: 5
+      EDV_RATE: 18.0
+
+volumes:
+  pgdata:

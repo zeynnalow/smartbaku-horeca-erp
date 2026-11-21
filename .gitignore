@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+ARCHITECTURE_PLAN.md
+.antigravity/
+.gemini/
+.cursor/
