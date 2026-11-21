@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Təchizatçılar &bull; SmartBaku ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Təchizatçılar Kataloqu</h1>
+    <p class="page-subtitle">Partnyor müəssisələr, vergi rekvizitləri (VÖEN) və əlaqə məlumatları</p>
+  </div>
+  <div>
+    <button class="btn btn-primary" onclick="openSupplierAddModal()">
+      <i data-lucide="plus"></i>
+      <span>Yeni Təchizatçı</span>
+    </button>
+  </div>
+</div>
+
+<!-- Suppliers Table -->
+<div class="table-container">
+  <table class="data-table" id="suppliers-table">
+    <thead>
+      <tr>
+        <th style="width: 50px;">ID</th>
+        <th>Təchizatçı Müəssisə</th>
+        <th style="width: 140px;">VÖEN</th>
+        <th style="width: 150px;">Əlaqə Telefonu</th>
+        <th style="width: 180px;">E-poçt</th>
+        <th>Fiziki / Hüquqi Ünvan</th>
+        <th style="text-align: right; width: 90px;">Əməliyyat</th>
+      </tr>
+    </thead>
+    <tbody id="suppliers-tbody">
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 24px; color: var(--slate-500);">Yüklənir...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Supplier Add / Edit Modal -->
+<div class="modal-overlay" id="supplier-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="supplier-modal-title">Yeni Təchizatçı Əlavə Et</h3>
+      <button class="modal-close" onclick="closeModal('supplier-modal')">&times;</button>
+    </div>
+    <form id="supplier-form" onsubmit="handleSupplierSubmit(event)">
+      <div class="modal-body">
+        <input type="hidden" id="sup-id">
+
+        <div class="form-group">
+          <label class="form-label" for="sup-name">Müəssisə Adı *</label>
+          <input type="text" id="sup-name" class="form-control" placeholder="Məs. Azərsun Holding MMC" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="sup-voen">VÖEN (10 rəqəm) *</label>
+            <input type="text" id="sup-voen" class="form-control tabular-nums" maxlength="10" placeholder="1400598371" required>
+            <small style="color: var(--slate-400); font-size: 11px;">Dəqiq 10 rəqəm olmalıdır</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="sup-phone">Telefon *</label>
+            <input type="text" id="sup-phone" class="form-control" placeholder="+994 12 404 99 00" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="sup-email">E-poçt ünvanı</label>
+          <input type="email" id="sup-email" class="form-control" placeholder="sales@azersun.az">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="sup-address">Hüquqi Ünvan</label>
+          <textarea id="sup-address" class="form-control" rows="2" placeholder="Bakı şəh., Heydər Əliyev pr. 92A"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('supplier-modal')">Ləğv et</button>
+        <button type="submit" class="btn btn-primary">Yadda saxla</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/suppliers.js"></script>
+{% endblock %}

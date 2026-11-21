@@ -1,14 +1,16 @@
+from pathlib import Path
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
 from .database import DatabaseManager
 from .services.inventory import InsufficientStockError
-from .routers import ingredients, recipes, suppliers, waybills, currency
+from .routers import ingredients, recipes, suppliers, waybills, currency, pages
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,7 +88,14 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-# --- Include API Routers ---
+# --- Mount Static Files ---
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# --- Include Routers ---
+app.include_router(pages.router)
 app.include_router(ingredients.router)
 app.include_router(recipes.router)
 app.include_router(suppliers.router)

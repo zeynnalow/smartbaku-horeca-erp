@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Qaimələr &bull; SmartBaku ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Alış Qaimələri və ƏDV Uçotu</h1>
+    <p class="page-subtitle">Tədarükçülərdən daxil olan malların rəsmi qəbulu, 18% ƏDV hesablanması və avtomatik stok artımı</p>
+  </div>
+  <div>
+    <button class="btn btn-primary" onclick="openNewWaybillModal()">
+      <i data-lucide="plus"></i>
+      <span>Yeni Qaimə</span>
+    </button>
+  </div>
+</div>
+
+<!-- Waybills List Table -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">
+      <i data-lucide="file-check"></i>
+      Tərtib Olunmuş Qaimələr Tarixçəsi
+    </span>
+    <button class="btn btn-sm btn-outline" onclick="loadWaybills()">
+      <i data-lucide="refresh-cw"></i>
+      <span>Yenilə</span>
+    </button>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-container" style="border: none; box-shadow: none;">
+      <table class="data-table" id="waybills-table">
+        <thead>
+          <tr>
+            <th style="width: 170px;">Qaimə Nömrəsi</th>
+            <th>Təchizatçı Müəssisə</th>
+            <th style="width: 120px;">Ara Cəm</th>
+            <th style="width: 110px;">ƏDV (18%)</th>
+            <th style="width: 130px;">Yekun Məbləğ</th>
+            <th style="width: 80px;">Valyuta</th>
+            <th style="width: 140px;">Tarix</th>
+            <th style="text-align: right; width: 100px;">Əməliyyat</th>
+          </tr>
+        </thead>
+        <tbody id="waybills-tbody">
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 24px; color: var(--slate-500);">Yüklənir...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- New Waybill Full Modal / Form -->
+<div class="modal-overlay" id="waybill-modal">
+  <div class="modal" style="max-width: 840px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Yeni Təhvil-Təslim Qaiməsi</h3>
+      <button class="modal-close" onclick="closeModal('waybill-modal')">&times;</button>
+    </div>
+    <form id="waybill-form" onsubmit="handleWaybillSubmit(event)">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group" style="flex: 2;">
+            <label class="form-label" for="wb-supplier">Təchizatçı Müəssisə *</label>
+            <select id="wb-supplier" class="form-control" required>
+              <option value="">— Təchizatçı seçin —</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label" for="wb-currency">Valyuta</label>
+            <select id="wb-currency" class="form-control" onchange="onCurrencyChange()">
+              <option value="AZN" selected>AZN (₼)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="TRY">TRY (₺)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label" for="wb-exchange-rate">Məzənnə (AZN)</label>
+            <input type="number" id="wb-exchange-rate" class="form-control tabular-nums" step="0.000001" min="0.000001" value="1.000000" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="wb-notes">Qeydlər və Rekvizitlər</label>
+          <input type="text" id="wb-notes" class="form-control" placeholder="Məs. №12 müqavilə əsasında həftəlik çatdırılma">
+        </div>
+
+        <!-- Line Items Section -->
+        <div style="margin-top: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label class="form-label" style="margin-bottom: 0;">Məhsul və Xammal Sətirləri *</label>
+            <button type="button" class="btn btn-sm btn-outline" onclick="addWaybillLineItem()">
+              <i data-lucide="plus"></i>
+              <span>Sətir Əlavə Et</span>
+            </button>
+          </div>
+
+          <div class="table-container" style="box-shadow: none;">
+            <table class="data-table" id="wb-items-table">
+              <thead>
+                <tr>
+                  <th style="width: 45%;">İnqrediyent</th>
+                  <th style="width: 20%;">Miqdar</th>
+                  <th style="width: 20%;">Vahid Qiymət</th>
+                  <th style="width: 15%; text-align: right;">Cəmi</th>
+                  <th style="width: 40px; text-align: center;"></th>
+                </tr>
+              </thead>
+              <tbody id="wb-items-tbody">
+                <!-- Dynamic rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Live Totals Summary -->
+        <div style="margin-top: 20px; padding: 14px 18px; background: var(--slate-50); border: 1px solid var(--border); border-radius: var(--radius); display: flex; justify-content: flex-end;">
+          <div style="width: 280px; font-size: 13px; line-height: 1.8;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--slate-500);">Ara Cəm:</span>
+              <strong id="display-subtotal" class="tabular-nums">0.00 AZN</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; color: var(--slate-500);">
+              <span>ƏDV (18%):</span>
+              <strong id="display-edv" class="tabular-nums">0.00 AZN</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; color: var(--primary);">
+              <span>Yekun Məbləğ:</span>
+              <span id="display-total" class="tabular-nums">0.00 AZN</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('waybill-modal')">Ləğv et</button>
+        <button type="submit" class="btn btn-primary" id="btn-submit-wb">
+          <i data-lucide="check"></i>
+          <span>Qaiməni Təsdiqlə və Stokları Artır</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/waybills.js"></script>
+{% endblock %}

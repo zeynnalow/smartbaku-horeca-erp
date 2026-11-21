@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard &bull; SmartBaku ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">İdarəetmə Paneli</h1>
+    <p class="page-subtitle">Restoran və anbar əməliyyatlarının operativ analitikası</p>
+  </div>
+  <div>
+    <button class="btn btn-outline" onclick="refreshDashboard()">
+      <i data-lucide="refresh-cw"></i>
+      <span>Yenilə</span>
+    </button>
+  </div>
+</div>
+
+<!-- 4 High-Density Stat Cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue">
+      <i data-lucide="boxes"></i>
+    </div>
+    <div class="stat-data">
+      <div class="stat-value" id="stat-total-ingredients">—</div>
+      <div class="stat-label">Ümumi İnqrediyentlər</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon amber">
+      <i data-lucide="alert-triangle"></i>
+    </div>
+    <div class="stat-data">
+      <div class="stat-value" id="stat-low-stock">—</div>
+      <div class="stat-label">Aşağı Stok Xəbərdarlığı</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon green">
+      <i data-lucide="chef-hat"></i>
+    </div>
+    <div class="stat-data">
+      <div class="stat-value" id="stat-active-recipes">—</div>
+      <div class="stat-label">Aktiv Reseptlər</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon purple">
+      <i data-lucide="file-text"></i>
+    </div>
+    <div class="stat-data">
+      <div class="stat-value" id="stat-today-waybills">—</div>
+      <div class="stat-label">Bugünkü Qaimələr</div>
+    </div>
+  </div>
+</div>
+
+<!-- Analytics Chart Section: Selling Price vs Ingredient Cost -->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-header">
+    <span class="card-title">
+      <i data-lucide="bar-chart-3"></i>
+      Menyu Rentabelliyi: Satış Qiyməti və Maya Dəyəri Müqayisəsi (AZN)
+    </span>
+    <span class="badge badge-gray">Kalkulyasiya Analitikası</span>
+  </div>
+  <div class="card-body" style="padding: 16px 20px;">
+    <div style="height: 240px; position: relative;">
+      <canvas id="recipe-margin-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Two-Column Grid: Low Stock Table + CBAR Rates Table -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+  <!-- Low Stock Alerts Table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">
+        <i data-lucide="alert-circle"></i>
+        Kritik və Aşağı Stok Xəbərdarlıqları
+      </span>
+      <a href="/inventory" class="btn btn-sm btn-outline">
+        <span>İnventara keç</span>
+        <i data-lucide="arrow-right"></i>
+      </a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <div class="table-container" style="border: none; box-shadow: none;">
+        <table class="data-table" id="low-stock-table">
+          <thead>
+            <tr>
+              <th>İnqrediyent</th>
+              <th>Ölçü vahidi</th>
+              <th>Cari Qalıq</th>
+              <th>Min. Hədd</th>
+              <th>Təchizatçı</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="low-stock-tbody">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--slate-500); padding: 20px;">
+                Məlumatlar yüklənir...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Central Bank Rates -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">
+        <i data-lucide="trending-up"></i>
+        CBAR Məzənnələri
+      </span>
+      <button class="btn btn-sm btn-outline" onclick="syncCurrencyRates()">
+        <i data-lucide="refresh-cw"></i>
+        <span>Sinxron</span>
+      </button>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <div class="table-container" style="border: none; box-shadow: none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Valyuta</th>
+              <th>Kod</th>
+              <th>Məzənnə</th>
+            </tr>
+          </thead>
+          <tbody id="currency-tbody">
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--slate-500); padding: 20px;">
+                Yüklənir...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding: 10px 14px; font-size: 11px; color: var(--slate-500); border-top: 1px solid var(--border); background: var(--slate-50);" id="currency-footer">
+        Mənbə: cbar.az
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let recipeChartInstance = null;
+
+async function refreshDashboard() {
+  try {
+    // 1. Ingredients count & Low stock
+    const ingData = await apiFetch('/api/ingredients');
+    const totalIngredients = ingData.items.length;
+    document.getElementById('stat-total-ingredients').innerText = totalIngredients;
+
+    const lowStockData = await apiFetch('/api/ingredients/low-stock');
+    const lowStockItems = lowStockData.items;
+    const lowStockCount = lowStockItems.length;
+    const lowStockEl = document.getElementById('stat-low-stock');
+    lowStockEl.innerText = lowStockCount;
+    lowStockEl.style.color = lowStockCount > 0 ? '#b91c1c' : '#15803d';
+
+    // Populate low stock table with clean semantic badge
+    const tbody = document.getElementById('low-stock-tbody');
+    if (lowStockItems.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #166534; padding: 20px; font-weight: 500;">Bütün inqrediyentlər yetərli səviyyədədir.</td></tr>`;
+    } else {
+      tbody.innerHTML = lowStockItems.map(item => `
+        <tr class="stock-red">
+          <td><strong>${item.name}</strong></td>
+          <td><span class="badge badge-gray">${item.unit}</span></td>
+          <td class="stock-cell">${Number(item.quantity).toFixed(2)}</td>
+          <td>${Number(item.min_stock).toFixed(2)}</td>
+          <td>${item.supplier_name || '<span style="color:#94a3b8;">—</span>'}</td>
+          <td><span class="badge badge-red"><span class="badge-dot"></span>Kritik az</span></td>
+        </tr>
+      `).join('');
+    }
+
+    // 2. Active Recipes count & Analytics chart
+    const recData = await apiFetch('/api/recipes');
+    const activeCount = recData.items.filter(r => r.is_active).length;
+    document.getElementById('stat-active-recipes').innerText = activeCount;
+    renderRecipeChart(recData.items);
+
+    // 3. Today's Waybills count
+    const wbData = await apiFetch('/api/waybills');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayWb = wbData.items.filter(w => w.created_at && w.created_at.startsWith(todayStr));
+    document.getElementById('stat-today-waybills').innerText = todayWb.length;
+
+    // 4. Currency rates table
+    loadDashboardCurrencyTable();
+
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  } catch (err) {
+    showToast('Dashboard məlumatları yüklənərkən xəta: ' + err.message, 'error');
+  }
+}
+
+function renderRecipeChart(recipes) {
+  const ctx = document.getElementById('recipe-margin-chart');
+  if (!ctx || !window.Chart) return;
+
+  const validRecipes = (recipes || []).slice(0, 8);
+  const labels = validRecipes.map(r => r.name);
+  const sellingPrices = validRecipes.map(r => Number(r.selling_price));
+  const costs = validRecipes.map(r => Number(r.cost_per_serving || 0));
+
+  if (recipeChartInstance) {
+    recipeChartInstance.destroy();
+  }
+
+  recipeChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Satış Qiyməti (AZN)',
+          data: sellingPrices,
+          backgroundColor: '#4f46e5',
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8
+        },
+        {
+          label: 'Maya Dəyəri (AZN)',
+          data: costs,
+          backgroundColor: '#cbd5e1',
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.8
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: {
+            boxWidth: 12,
+            boxHeight: 12,
+            font: { family: 'Inter', size: 11, weight: '500' },
+            color: '#475569'
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `${context.dataset.label}: ${context.parsed.x.toFixed(2)} AZN`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#f1f5f9' },
+          ticks: {
+            font: { family: 'JetBrains Mono', size: 10 },
+            color: '#64748b',
+            callback: value => value + ' ₼'
+          }
+        },
+        y: {
+          grid: { display: false },
+          ticks: {
+            font: { family: 'Inter', size: 11, weight: '500' },
+            color: '#0f172a'
+          }
+        }
+      }
+    }
+  });
+}
+
+async function loadDashboardCurrencyTable() {
+  try {
+    const data = await apiFetch('/api/currency/rates');
+    const tbody = document.getElementById('currency-tbody');
+    const currencyNames = {
+      USD: 'ABŞ Dolları',
+      EUR: 'Avro',
+      TRY: 'Türkiyə Lirəsi',
+      RUB: 'Rusiya Rublu',
+      GEL: 'Gürcüstan Larisi'
+    };
+    const rows = Object.entries(data.rates || {}).map(([code, rate]) => `
+      <tr>
+        <td><strong>${currencyNames[code] || code}</strong></td>
+        <td><span class="badge badge-gray">${code}</span></td>
+        <td class="tabular-nums" style="font-weight: 600;">${Number(rate).toFixed(4)} ₼</td>
+      </tr>
+    `).join('');
+    tbody.innerHTML = rows;
+
+    const footer = document.getElementById('currency-footer');
+    if (footer) {
+      footer.innerText = `Mənbə: ${data.source} (${data.fetched_at ? data.fetched_at.slice(0, 19).replace('T', ' ') : 'bu gün'})`;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  refreshDashboard();
+});
+</script>
+{% endblock %}

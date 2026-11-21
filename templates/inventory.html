@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}İnventarizasiya &bull; SmartBaku ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">İnventarizasiya və Stok</h1>
+    <p class="page-subtitle">Xammal və ərzaq qalıqlarının real-vaxt rejimində uçotu</p>
+  </div>
+  <div style="display: flex; gap: 8px;">
+    <button class="btn btn-outline" onclick="loadIngredients()">
+      <i data-lucide="refresh-cw"></i>
+      <span>Yenilə</span>
+    </button>
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <i data-lucide="plus"></i>
+      <span>Yeni İnqrediyent</span>
+    </button>
+  </div>
+</div>
+
+<!-- Stock legend with subtle dots -->
+<div style="display: flex; gap: 16px; margin-bottom: 14px; font-size: 11.5px; color: var(--slate-500);">
+  <span style="display: flex; align-items: center; gap: 6px;">
+    <span class="badge badge-green"><span class="badge-dot"></span>Yetərli (> 2× Min)</span>
+  </span>
+  <span style="display: flex; align-items: center; gap: 6px;">
+    <span class="badge badge-yellow"><span class="badge-dot"></span>Diqqət (≤ 2× Min)</span>
+  </span>
+  <span style="display: flex; align-items: center; gap: 6px;">
+    <span class="badge badge-red"><span class="badge-dot"></span>Kritik az (≤ Min)</span>
+  </span>
+</div>
+
+<!-- Main Table -->
+<div class="table-container">
+  <table class="data-table" id="ingredients-table">
+    <thead>
+      <tr>
+        <th style="width: 50px;">ID</th>
+        <th>İnqrediyent Adı</th>
+        <th style="width: 80px;">Ölçü vahidi</th>
+        <th style="width: 110px;">Cari Qalıq</th>
+        <th style="width: 110px;">Min. Hədd</th>
+        <th style="width: 130px;">Son Alış Qiyməti</th>
+        <th>Təchizatçı</th>
+        <th style="width: 110px;">Status</th>
+        <th style="text-align: right; width: 100px;">Əməliyyat</th>
+      </tr>
+    </thead>
+    <tbody id="ingredients-tbody">
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 24px; color: var(--slate-500);">Yüklənir...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay" id="ingredient-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-title">İnqrediyent Əlavə Et</h3>
+      <button class="modal-close" onclick="closeModal('ingredient-modal')">&times;</button>
+    </div>
+    <form id="ingredient-form" onsubmit="handleIngredientSubmit(event)">
+      <div class="modal-body">
+        <input type="hidden" id="ing-id">
+
+        <div class="form-group">
+          <label class="form-label" for="ing-name">İnqrediyent adı *</label>
+          <input type="text" id="ing-name" class="form-control" placeholder="Məs. Toyuq filesi" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="ing-unit">Ölçü vahidi *</label>
+            <select id="ing-unit" class="form-control" required>
+              <option value="kq">kq (Kiloqram)</option>
+              <option value="litr">litr (Litr)</option>
+              <option value="ədəd">ədəd (Ədəd)</option>
+              <option value="qram">qram (Qram)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ing-supplier">Təchizatçı</label>
+            <select id="ing-supplier" class="form-control">
+              <option value="">— Təchizatçı seçin —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="ing-quantity">Cari Miqdar *</label>
+            <input type="number" id="ing-quantity" class="form-control" step="0.01" min="0" value="0.00" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ing-min-stock">Min. Ehtiyat Həddi *</label>
+            <input type="number" id="ing-min-stock" class="form-control" step="0.01" min="0" value="0.00" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="ing-price">Vahid Alış Qiyməti (AZN)</label>
+          <input type="number" id="ing-price" class="form-control" step="0.01" min="0" value="0.00" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('ingredient-modal')">Ləğv et</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-ing">Yadda saxla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Stock Adjust Modal -->
+<div class="modal-overlay" id="adjust-modal">
+  <div class="modal" style="max-width: 400px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Stok Qalığını Dəyişdir</h3>
+      <button class="modal-close" onclick="closeModal('adjust-modal')">&times;</button>
+    </div>
+    <form id="adjust-form" onsubmit="handleStockAdjust(event)">
+      <div class="modal-body">
+        <input type="hidden" id="adjust-ing-id">
+        <div style="margin-bottom: 10px; font-weight: 600;" id="adjust-ing-name">—</div>
+        <p style="font-size: 12px; color: var(--slate-500); margin-bottom: 14px;">
+          Artırmaq üçün müsbət (məs: <code>5</code>), azaltmaq üçün mənfi ədəd (məs: <code>-2.5</code>) daxil edin.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="adjust-delta">Dəyişiklik Miqdarı *</label>
+          <input type="number" id="adjust-delta" class="form-control" step="0.01" placeholder="Məs: 10 və ya -5" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('adjust-modal')">Ləğv et</button>
+        <button type="submit" class="btn btn-primary">Dəyişikliyi Saxla</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/inventory.js"></script>
+{% endblock %}

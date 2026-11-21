@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Reseptlər &bull; SmartBaku ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Menyu Reseptləri və Kalkulyasiya</h1>
+    <p class="page-subtitle">Tərkib xammalları, vahid maya dəyəri və avtomatlaşdırılmış anbar silinməsi</p>
+  </div>
+  <div>
+    <button class="btn btn-primary" onclick="initNewRecipe()">
+      <i data-lucide="plus"></i>
+      <span>Yeni Resept</span>
+    </button>
+  </div>
+</div>
+
+<div class="recipes-layout">
+  <!-- Left Column: Recipe Cards List -->
+  <div>
+    <div style="margin-bottom: 10px;">
+      <input type="text" id="recipe-search" class="form-control" placeholder="Reseptlərdə axtarış..." oninput="filterRecipes()">
+    </div>
+    <div class="recipe-cards-list" id="recipe-cards-container">
+      <div style="padding: 24px; text-align: center; color: var(--slate-500);">Yüklənir...</div>
+    </div>
+  </div>
+
+  <!-- Right Column: Recipe Editor & Actions -->
+  <div>
+    <div class="card" id="recipe-editor-card">
+      <div class="card-header">
+        <span class="card-title" id="editor-title">
+          <i data-lucide="book-open"></i>
+          Resept Spesifikasiyası
+        </span>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-sm btn-outline" id="btn-delete-recipe" style="display: none; color: var(--danger);" onclick="deleteCurrentRecipe()">
+            <i data-lucide="trash-2"></i>
+            <span>Sil</span>
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <form id="recipe-form" onsubmit="handleRecipeSave(event)">
+          <input type="hidden" id="rec-id">
+
+          <div class="form-row">
+            <div class="form-group" style="grid-column: span 2;">
+              <label class="form-label" for="rec-name">Yeməyin və ya İçkinin Adı *</label>
+              <input type="text" id="rec-name" class="form-control" placeholder="Məs. Plov" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rec-category">Kateqoriya *</label>
+              <select id="rec-category" class="form-control" required>
+                <option value="Əsas yemək">Əsas yemək</option>
+                <option value="Şorba">Şorba</option>
+                <option value="Desert">Desert</option>
+                <option value="İçki">İçki</option>
+                <option value="Qəlyanaltı">Qəlyanaltı</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="rec-price">Satış Qiyməti (AZN) *</label>
+              <input type="number" id="rec-price" class="form-control tabular-nums" step="0.01" min="0" placeholder="12.00" required>
+            </div>
+          </div>
+
+          <!-- Cost and Margin Metrics summary -->
+          <div style="display: flex; gap: 24px; background: var(--slate-50); border: 1px solid var(--border); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px;">
+            <div>
+              <span style="font-size: 11px; font-weight: 500; color: var(--slate-500); text-transform: uppercase;">1 Porsiya Maya Dəyəri:</span>
+              <div style="font-weight: 700; font-size: 15px; color: var(--slate-900); font-family: var(--font-mono);" id="display-cost">—</div>
+            </div>
+            <div style="border-left: 1px solid var(--border); padding-left: 24px;">
+              <span style="font-size: 11px; font-weight: 500; color: var(--slate-500); text-transform: uppercase;">Rentabellik Marjası:</span>
+              <div style="font-weight: 700; font-size: 15px; color: #16a34a; font-family: var(--font-mono);" id="display-margin">—</div>
+            </div>
+          </div>
+
+          <!-- Ingredient Picker Section -->
+          <div style="margin-bottom: 16px;">
+            <label class="form-label">Resept Tərkibi (1 porsiya standartı)</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+              <select id="picker-ingredient" class="form-control" style="flex: 2;">
+                <option value="">— İnqrediyent seçin —</option>
+              </select>
+              <input type="number" id="picker-qty" class="form-control tabular-nums" style="flex: 1;" step="0.0001" min="0.0001" placeholder="Miqdar">
+              <button type="button" class="btn btn-outline" onclick="addIngredientToRecipe()">
+                <i data-lucide="plus"></i>
+                <span>Əlavə et</span>
+              </button>
+            </div>
+
+            <!-- Items Table -->
+            <div class="table-container" style="box-shadow: none;">
+              <table class="data-table" id="recipe-items-table">
+                <thead>
+                  <tr>
+                    <th>İnqrediyent</th>
+                    <th style="width: 80px;">Vahid</th>
+                    <th style="width: 120px;">Tələb Miqdarı</th>
+                    <th style="width: 100px;">Vahid Qiymət</th>
+                    <th style="width: 100px;">Maya Dəyəri</th>
+                    <th style="width: 40px; text-align: center;"></th>
+                  </tr>
+                </thead>
+                <tbody id="recipe-items-tbody">
+                  <tr>
+                    <td colspan="6" style="text-align: center; color: var(--slate-500); padding: 14px;">Tərkibdə inqrediyent yoxdur.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 14px;">
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-outline" id="btn-check-avail" onclick="checkCurrentRecipeAvailability()">
+                <i data-lucide="check-square"></i>
+                <span>Mövcudluğu Yoxla</span>
+              </button>
+              <button type="button" class="btn btn-success" id="btn-cook" onclick="openCookModal()">
+                <i data-lucide="utensils"></i>
+                <span>Hazırla (Stok Sil)</span>
+              </button>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i data-lucide="save"></i>
+              <span>Yadda Saxla</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Availability Results Modal -->
+<div class="modal-overlay" id="avail-modal">
+  <div class="modal" style="max-width: 580px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Stok Mövcudluğu Analizi</h3>
+      <button class="modal-close" onclick="closeModal('avail-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="avail-status-banner" style="padding: 10px 14px; border-radius: var(--radius); margin-bottom: 14px; font-size: 12.5px; font-weight: 500;"></div>
+      <div class="table-container" style="box-shadow: none;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>İnqrediyent</th>
+              <th>Tələb</th>
+              <th>Mövcud</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="avail-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('avail-modal')">Bağla</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cook / Prepare Modal -->
+<div class="modal-overlay" id="cook-modal">
+  <div class="modal" style="max-width: 420px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Yeməyin Hazırlanması və Stok Silinməsi</h3>
+      <button class="modal-close" onclick="closeModal('cook-modal')">&times;</button>
+    </div>
+    <form onsubmit="handleCookSubmit(event)">
+      <div class="modal-body">
+        <p style="margin-bottom: 14px; font-size: 13px;">
+          Seçilmiş menyu bəndi: <strong id="cook-recipe-name">—</strong>
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="cook-servings">Porsiya sayı *</label>
+          <input type="number" id="cook-servings" class="form-control tabular-nums" min="1" value="1" required>
+        </div>
+        <div style="background: var(--slate-50); border: 1px solid var(--border); padding: 10px 12px; border-radius: var(--radius); font-size: 12px; color: var(--slate-600); display: flex; gap: 8px;">
+          <i data-lucide="shield-alert" style="color: var(--primary); margin-top: 2px;"></i>
+          <span>Təsdiq edildikdə tərkibdəki bütün inqrediyentlər anbar stokundan atomar qaydada silinəcəkdir.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('cook-modal')">Ləğv et</button>
+        <button type="submit" class="btn btn-success" id="btn-confirm-cook">Təsdiq et və Hazırla</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/recipes.js"></script>
+{% endblock %}

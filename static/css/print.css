@@ -1,0 +1,42 @@
+/* SmartBaku HoReCa ERP - Print Stylesheet */
+@page {
+  size: A4 portrait;
+  margin: 15mm;
+}
+
+body {
+  font-family: "Times New Roman", Times, serif;
+  color: #000;
+  background: #fff;
+  font-size: 13pt;
+  line-height: 1.4;
+}
+
+.no-print,
+.navbar,
+footer,
+.btn,
+#toast-container {
+  display: none !important;
+}
+
+.print-container {
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table th,
+table td {
+  border: 1px solid #000;
+  padding: 6px 8px;
+}
+
+table th {
+  background-color: #f0f0f0 !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
